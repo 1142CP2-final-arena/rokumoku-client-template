@@ -77,7 +77,7 @@ class ArenaAPI:
         return self._handle_json_response(response)
 
     def submit_bid(self, room_id, bid_seconds, color_choice):
-        url = f"{self.base_url}/api/rooms/{room_id}/human-bid"
+        url = f"{self.base_url}/api/rooms/{room_id}/bid"
         response = self.session.post(
             url,
             json={"bid": bid_seconds, "color": color_choice},

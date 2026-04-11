@@ -12,7 +12,7 @@ from strategy import BotStrategy
 
 API_BASE_URL = os.getenv("ARENA_URL", "http://localhost:8080")
 API_KEY = os.getenv("BOT_API_KEY", "your_bot_api_key")
-ROOM_ID = os.getenv("ROOM_ID", "human-1")
+ROOM_ID = os.getenv("ROOM_ID", "room1")
 SEAT_PREFERENCE = os.getenv("BOT_SEAT", "black").strip().lower() or "black"
 
 if SEAT_PREFERENCE not in {"black", "white"}:
@@ -24,6 +24,24 @@ api = ArenaAPI(API_BASE_URL)
 def seat_attempt_order():
     fallback = "white" if SEAT_PREFERENCE == "black" else "black"
     return [SEAT_PREFERENCE, fallback]
+
+
+def decode_compact_board(board_compact, board_size):
+    try:
+        size = int(board_size)
+    except (TypeError, ValueError):
+        size = 19
+    if size <= 0:
+        size = 19
+    text = str(board_compact or "")
+    board = []
+    for row in range(size):
+        row_values = []
+        for col in range(size):
+            index = row * size + col
+            row_values.append(text[index] if index < len(text) else ".")
+        board.append(row_values)
+    return board
 
 
 def seated_username(room, seat):
@@ -107,6 +125,9 @@ def handle_room_snapshot(room, username, strategy, runtime_state):
     player_colors = room.get("player_colors") or {}
     player_time_left = room.get("player_time_left") or {}
     strong_by_color = room.get("strong_pieces_available") or {}
+    board = room.get("board")
+    if not isinstance(board, list):
+        board = decode_compact_board(room.get("board_compact"), room.get("board_size"))
 
     my_color = player_colors.get(str(my_player_id))
     time_left = float(player_time_left.get(str(my_player_id), 0.0) or 0.0)
@@ -120,7 +141,7 @@ def handle_room_snapshot(room, username, strategy, runtime_state):
         try:
             print(f"My turn! Color={my_color}, Time left={time_left:.2f}s")
             row, col, use_strong = strategy.choose_move(
-                board=room.get("board"),
+                board=board,
                 my_color=my_color,
                 strong_available=strong_available,
                 time_left=time_left,

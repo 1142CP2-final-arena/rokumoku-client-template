@@ -1,4 +1,4 @@
-# 🤖 Arena AI Bot Template (Python)
+# 🤖 Rokumoku Arena AI Bot Template (Python)
 
 歡迎來到期末 AI 錦標賽！這份官方 Python 模板已經為你處理好所有繁瑣的伺服器通訊、Session 維護、Heartbeat 與 SSE 重連。你只需要專注於一件事：**寫出最強的演算法擊敗對手。**
 
@@ -31,7 +31,7 @@ pip install -r requirements.txt
 ```bash
 export ARENA_URL="http://your-arena-url.com" # 競技場網址
 export BOT_API_KEY="ga_bot_YOUR_API_KEY"     # 你的專屬 API Key
-export ROOM_ID="human-1"                     # 你要加入的房間 ID
+export ROOM_ID="room1"                       # 你要加入的房間 ID
 export BOT_SEAT="black"                      # 偏好的初始座位，可設 black 或 white
 ```
 *(Windows 使用者請將 `export` 替換為 `set` 或使用 PowerShell 的 `$env:VAR="value"`)*
@@ -54,7 +54,7 @@ python main.py
 當輪到你的回合時，系統會呼叫此函式。你需要回傳你想落子的座標，以及是否使用特殊棋子（Strong 棋子）。
 
 **傳入參數：**
-* `board`: 15x15 的二維陣列（`.`=空, `b`=黑一般, `w`=白一般, `B`=黑強子, `W`=白強子）。
+* `board`: 由 server 決定大小的二維陣列。`arena_dev` 目前預設為 `19x19`（`.`=空, `b`=黑一般, `w`=白一般, `B`=黑強子, `W`=白強子）。
 * `my_color`: 整數，**1** 代表黑方，**2** 代表白方。
 * `strong_available`: 整數，你目前手上持有的 Strong 棋子數量（0 或 1）。
 * `time_left`: 浮點數，你這局**剩餘的總思考時間**（秒）。
@@ -76,7 +76,7 @@ python main.py
 
 ## 📜 遊戲核心規則摘要
 
-* **獲勝條件**：在 15x15 的棋盤上，率先將 **6 顆**自己的棋子連成一線（橫、豎、斜皆可）。
+* **獲勝條件**：在目前的棋盤設定下，率先將 **6 顆**自己的棋子連成一線（橫、豎、斜皆可）。`arena_dev` 預設為 `19x19 / 連 6`，正式以 server 設定為準。
 * **Strong 棋子 (強子)**：
     * 一般子只能下在空格。
     * 強子可以覆蓋在**任何非強子**（包含對手或自己的普通子）之上，且覆蓋後**無法再被任何人覆蓋**。
@@ -105,7 +105,8 @@ python main.py
 3. `heartbeat` 每 5 秒送一次；server 也會每 5 秒送一次 `sync` event。
 4. stream 若斷線，模板會自動重連。
 5. 落子 API 為 `POST /api/rooms/<room_id>/move`。
-6. Armageddon bidding 是 simultaneous sealed bid，提交前看不到對手的 bid。
+6. Armageddon bidding 是 simultaneous sealed bid，提交前看不到對手的 bid，提交端點為 `POST /api/rooms/<room_id>/bid`。
+7. `/stream` 會提供 `board_compact + board_size`（扁平化盤面），模板已內建 fallback 解碼；若同時收到 `board` 二維陣列也會直接使用。
 
 ### 💡 實作提示 (Pro Tips)
 * **迭代加深 (Iterative Deepening)**：不要寫死你的搜尋層數（Depth）。寫一個可以在任何時刻透過 Timeout 中斷並回傳「當前最佳解」的迴圈，這是避免超時的關鍵。

@@ -30,7 +30,7 @@ pip install -r requirements.txt
 你的 Bot 需要 API Key 才能連上競技場。請將以下環境變數替換為你在平台上獲得的真實資訊：
 ```bash
 export ARENA_URL="http://your-arena-url.com" # 競技場網址
-export BOT_API_KEY="ga_bot_YOUR_API_KEY"     # 你的專屬 API Key
+export BOT_API_KEY="ra_bot_YOUR_API_KEY"     # 你的專屬 API Key
 export ROOM_ID="room1"                       # 你要加入的房間 ID
 export BOT_SEAT="black"                      # 偏好的初始座位，可設 black 或 white
 ```
@@ -107,6 +107,26 @@ python main.py
 5. 落子 API 為 `POST /api/rooms/<room_id>/move`。
 6. Armageddon bidding 是 simultaneous sealed bid，提交前看不到對手的 bid，提交端點為 `POST /api/rooms/<room_id>/bid`。
 7. `/stream` 會提供 `board_compact + board_size`（扁平化盤面），模板已內建 fallback 解碼；若同時收到 `board` 二維陣列也會直接使用。
+
+---
+
+## 🧱 Sandbox Pull-Only CI/CD（新）
+
+這份模板已附上 pull-only pipeline：
+
+* Workflow 路徑：`.github/workflows/sandbox_pull_only.yml`
+* 每次 push 會：
+  1. 安裝依賴並做語法檢查
+  2. 產出 `.arena/sandbox-build-metadata.json`（含 `build_datetime` / `commit_hash`）
+  3. 上傳 metadata artifact（不會把 API key 推送到 arena）
+
+Arena 端做法：
+
+1. 在 tournament sandbox entry 填入你的 `repository` 與 `git_ref`。
+2. Arena 只會在「配對即將開局」前執行 pull command 抓 repo。
+3. 啟動 sandbox bot 時以唯讀掛載 repo 到 container，再執行 `python3 /workspace/main.py`。
+
+另外可用 `.arena/pull-config.json` 宣告 entrypoint 與安裝命令。
 
 ### 💡 實作提示 (Pro Tips)
 * **迭代加深 (Iterative Deepening)**：不要寫死你的搜尋層數（Depth）。寫一個可以在任何時刻透過 Timeout 中斷並回傳「當前最佳解」的迴圈，這是避免超時的關鍵。

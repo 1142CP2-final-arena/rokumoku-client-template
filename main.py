@@ -61,9 +61,9 @@ def decode_compact_board(board_compact, board_size):
     try:
         size = int(board_size)
     except (TypeError, ValueError):
-        size = 19
+        size = 15
     if size <= 0:
-        size = 19
+        size = 15
     text = str(board_compact or "")
     board = []
     for row in range(size):

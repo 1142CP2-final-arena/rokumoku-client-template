@@ -10,6 +10,37 @@ from api import ArenaAPI, ArenaAPIError
 from strategy import BotStrategy
 
 
+def load_dotenv(path=".env"):
+    if not os.path.exists(path):
+        return
+
+    with open(path, encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line[len("export ") :].lstrip()
+
+            key, separator, raw_value = line.partition("=")
+            if not separator:
+                continue
+
+            key = key.strip()
+            if not key or key in os.environ:
+                continue
+
+            value = raw_value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                value = value[1:-1]
+            elif " #" in value:
+                value = value.split(" #", 1)[0].rstrip()
+
+            os.environ[key] = value
+
+
+load_dotenv()
+
 API_BASE_URL = os.getenv("ARENA_URL", "http://localhost:8080")
 API_KEY = os.getenv("BOT_API_KEY", "your_bot_api_key")
 ROOM_ID = os.getenv("ROOM_ID", "room1")

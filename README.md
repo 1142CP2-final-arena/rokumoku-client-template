@@ -27,14 +27,21 @@ pip install -r requirements.txt
 ```
 
 ### 2. 設定環境變數
-你的 Bot 需要 API Key 才能連上競技場。請將以下環境變數替換為你在平台上獲得的真實資訊：
+你的 Bot 需要 API Key 才能連上競技場。請先複製環境變數範本：
 ```bash
-export ARENA_URL="http://your-arena-url.com" # 競技場網址
-export BOT_API_KEY="ra_bot_YOUR_API_KEY"     # 你的專屬 API Key
-export ROOM_ID="room1"                       # 你要加入的房間 ID
-export BOT_SEAT="black"                      # 偏好的初始座位，可設 black 或 white
+cp .env.example .env
 ```
-*(Windows 使用者請將 `export` 替換為 `set` 或使用 PowerShell 的 `$env:VAR="value"`)*
+
+接著編輯 `.env`，把以下四項替換為你在平台上獲得的真實資訊：
+```dotenv
+ARENA_URL=http://your-arena-url.com
+BOT_API_KEY=ra_bot_YOUR_API_KEY
+ROOM_ID=room1
+BOT_SEAT=black
+```
+
+`BOT_SEAT` 是偏好的初始座位，可設為 `black` 或 `white`。`main.py` 啟動時會自動讀取 `.env`；如果系統環境變數中已經有同名設定，系統環境變數會優先。
+`.env` 會包含你的 API Key，請保留在本機，不要提交到版本庫。
 
 注意：模板會在登入成功後直接使用 server 回傳的 bot `username`，不需要你自己手動指定 `BOT_USERNAME`。
 

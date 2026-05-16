@@ -1,3 +1,4 @@
 .env
+docker-compose-sandbox.yml
 venv/
 __pycache__/

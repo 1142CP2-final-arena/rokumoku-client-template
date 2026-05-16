@@ -6,10 +6,36 @@
 
 本模板包含以下核心檔案：
 
-* **`strategy.py`** ⭐️ **你要寫扣的地方**：包含 `BotStrategy` 類別，你所有的 AI 邏輯（如 Minimax、Alpha-Beta 剪枝或神經網路推論）都請實作在這裡。
-* **`main.py`** (不建議修改)：遊戲主程式。負責登入、維護狀態機、解析 SSE 事件流，並在適當的時機呼叫你的策略。
-* **`api.py`** (不建議修改)：底層的 HTTP/REST API 封裝，會處理 session、錯誤 envelope 與 heartbeat 相關呼叫。
-* **`requirements.txt`**：Python 依賴套件清單。
+```text
+client_template/
+├── README.md
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
+├── .arena/
+│   └── pull-config.json
+├── .github/
+│   └── workflows/
+│       └── sandbox_pull_only.yml
+└── src/
+    ├── entrypoint.sh
+    ├── main.py
+    ├── api.py
+    └── strategy.py
+```
+
+Sandbox bot 只會 mount `./src`。請將 `entrypoint.sh` 寫在 `./src` 裡面。
+
+* **`src/strategy.py`** ⭐️ **你要寫 code 的地方**：包含 `BotStrategy` 類別，你所有的 AI 邏輯（如 Minimax、Alpha-Beta 剪枝或神經網路推論）都請實作在這裡。
+* **`src/main.py`**：遊戲主程式。負責登入、維護狀態機、解析 SSE 事件流，並在適當的時機呼叫你的策略。
+* **`src/api.py`**（不建議更改）：底層的 HTTP/REST API 封裝，會處理 session、錯誤 envelope 與 heartbeat 相關呼叫。
+* **`src/entrypoint.sh`**：sandbox runtime 入口。Arena 會把 `./src` mount 到容器內並執行這個檔案。
+* **`docker-compose.yml`**（不建議更改）：本機 Docker Build and Run 測試用 compose 設定。
+* **`Dockerfile`**（請勿更改）：比賽與本機測試會固定使用這份環境設定。
+* **`requirements.txt`**（請勿更改）：Python 依賴套件清單。比賽時會固定使用這份套件包。
+* **`.arena/`**（請勿更改）：Arena pull-only pipeline 會讀取的設定與 metadata 路徑。
+* **`.github/`**（請勿更改）：模板提供的 CI/CD workflow。
 
 ---
 
@@ -40,28 +66,45 @@ ROOM_ID=room1
 BOT_SEAT=black
 ```
 
-`BOT_SEAT` 是偏好的初始座位，可設為 `black` 或 `white`。`main.py` 啟動時會自動讀取 `.env`；如果系統環境變數中已經有同名設定，系統環境變數會優先。
+`BOT_SEAT` 是偏好的初始座位，可設為 `black` 或 `white`。`src/main.py` 啟動時會自動讀取專案根目錄的 `.env`；如果系統環境變數中已經有同名設定，系統環境變數會優先。
 `.env` 會包含你的 API Key，請保留在本機，不要提交到版本庫。
 
 注意：模板會在登入成功後直接使用 server 回傳的 bot `username`，不需要你自己手動指定 `BOT_USERNAME`。
 
 ### 3. 啟動你的 Bot
 ```bash
-python main.py
+sh src/entrypoint.sh
 ```
-啟動後，Bot 會自動登入、連線至房間、自動上桌與 ready，並在輪到你時呼叫 `strategy.py` 裡的邏輯。你可以打開網頁版競技場，親眼觀看你的 Bot 下棋。
+啟動後，Bot 會自動登入、連線至房間、自動上桌與 ready，並在輪到你時呼叫 `src/strategy.py` 裡的邏輯。你可以打開網頁版競技場，親眼觀看你的 Bot 下棋。
+
+### 4. 使用 Docker 測試
+
+本模板附上的 `Dockerfile` 與 `docker-compose.yml` 僅供學生在本機測試環境是否可正常啟動：
+
+```bash
+cd client_template
+docker compose up --build --abort-on-container-exit
+```
+
+這個 compose 會 build 目前目錄的 `Dockerfile`，讀取 `.env`，並讓 bot 直接透過網路連到 `ARENA_URL`。請使用平台提供的 API Bot Key 填入 `BOT_API_KEY`，並確認 `ROOM_ID` 與 `BOT_SEAT` 正確。此本機測試不會經過比賽 sandbox proxy，也不會套用正式比賽的網路隔離。
+
+此 Dockerfile 的用途是讓你確認 `requirements.txt`、`src/entrypoint.sh` 與 bot 程式在乾淨 Python 環境中可以運作。實際比賽會使用設定相同、但額外添加安全防護與隔離的 Dockerfile 啟動容器，請勿更改 `Dockerfile`。
+
+`requirements.txt` 也請勿更改。比賽時會固定使用模板提供的這組 Python 套件包；若你的 bot 依賴額外套件，正式比賽環境不會自動安裝，可能導致 bot 無法正確啟動。請把開發重點放在 `src/strategy.py`，並以模板既有依賴完成實作。
+
+`docker-compose.yml` 是本機測試用固定設定，不建議更改。
 
 ---
 
 ## 🧠 如何開發你的 AI？
 
-請打開 `strategy.py`，你只需要實作以下兩個核心函式：
+請打開 `src/strategy.py`，你只需要實作以下兩個核心函式：
 
 ### 1. `choose_move` (落子策略)
 當輪到你的回合時，系統會呼叫此函式。你需要回傳你想落子的座標，以及是否使用特殊棋子（Strong 棋子）。
 
 **傳入參數：**
-* `board`: 由 server 決定大小的二維陣列。`arena_dev` 目前預設為 `19x19`（`.`=空, `b`=黑一般, `w`=白一般, `B`=黑強子, `W`=白強子）。
+* `board`: 由 server 決定大小的二維陣列。`arena_dev` 目前預設為 `15x15`（`.`=空, `b`=黑一般, `w`=白一般, `B`=黑強子, `W`=白強子）。
 * `my_color`: 整數，**1** 代表黑方，**2** 代表白方。
 * `strong_available`: 整數，你目前手上持有的 Strong 棋子數量（0 或 1）。
 * `time_left`: 浮點數，你這局**剩餘的總思考時間**（秒）。
@@ -83,7 +126,7 @@ python main.py
 
 ## 📜 遊戲核心規則摘要
 
-* **獲勝條件**：在目前的棋盤設定下，率先將 **6 顆**自己的棋子連成一線（橫、豎、斜皆可）。`arena_dev` 預設為 `19x19 / 連 6`，正式以 server 設定為準。
+* **獲勝條件**：在目前的棋盤設定下，率先將 **6 顆**自己的棋子連成一線（橫、豎、斜皆可）。`arena_dev` 預設為 `15x15 / 連 6`，正式以 server 設定為準。
 * **Strong 棋子 (強子)**：
     * 一般子只能下在空格。
     * 強子可以覆蓋在**任何非強子**（包含對手或自己的普通子）之上，且覆蓋後**無法再被任何人覆蓋**。
@@ -131,9 +174,10 @@ Arena 端做法：
 
 1. 在 tournament sandbox entry 填入你的 `repository` 與 `git_ref`。
 2. Arena 只會在「配對即將開局」前執行 pull command 抓 repo。
-3. 啟動 sandbox bot 時以唯讀掛載 repo 到 container，再執行 `python3 /workspace/main.py`。
+3. 啟動 sandbox bot 時只會以唯讀方式掛載 repo 的 `./src` 到 container 的 `/workspace`。
+4. Arena 會執行 `sh /workspace/entrypoint.sh`。請確認你的 `entrypoint.sh` 放在 `./src` 內，且會啟動你的 bot。
 
-另外可用 `.arena/pull-config.json` 宣告 entrypoint 與安裝命令。
+另外可用 `.arena/pull-config.json` 宣告 entrypoint 與安裝命令；本模板的 entrypoint 是 `src/entrypoint.sh`。
 
 ### 💡 實作提示 (Pro Tips)
 * **迭代加深 (Iterative Deepening)**：不要寫死你的搜尋層數（Depth）。寫一個可以在任何時刻透過 Timeout 中斷並回傳「當前最佳解」的迴圈，這是避免超時的關鍵。

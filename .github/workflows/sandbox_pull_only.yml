@@ -29,9 +29,10 @@ jobs:
 
       - name: Syntax Check
         run: |
-          python -m py_compile api.py
-          python -m py_compile main.py
-          python -m py_compile strategy.py
+          python -m py_compile src/api.py
+          python -m py_compile src/main.py
+          python -m py_compile src/strategy.py
+          bash -n src/entrypoint.sh
 
       - name: Emit Sandbox Build Metadata
         run: |
@@ -42,7 +43,7 @@ jobs:
           {
             "build_datetime": "${BUILD_TIME}",
             "commit_hash": "${COMMIT_HASH}",
-            "entrypoint": "main.py"
+            "entrypoint": "src/entrypoint.sh"
           }
           EOF
 

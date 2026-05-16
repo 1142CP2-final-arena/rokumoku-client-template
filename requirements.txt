@@ -1,2 +1,12 @@
 requests==2.31.0
 sseclient-py==1.8.0
+
+# MCTS / numeric search helpers.
+numpy>=1.26,<3
+scipy>=1.13,<2
+numba>=0.60,<1
+tqdm>=4.66,<5
+
+# DQN / reinforcement learning helpers.
+torch>=2.4,<3
+gymnasium>=0.29,<1

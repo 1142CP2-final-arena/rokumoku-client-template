@@ -1,0 +1,150 @@
+name: rokumoku-client-sandbox
+
+services:
+  arena-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox-proxy
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+          -keyout /proxy-certs/arena-proxy.key \
+          -out /proxy-certs/arena-proxy.crt \
+          -subj "/CN=arena-proxy" \
+          -addext "subjectAltName=DNS:arena-proxy" >/dev/null 2>&1
+        cat > /tmp/nginx.conf <<'NGINX'
+        pid /tmp/nginx.pid;
+        events {
+            worker_connections 1024;
+        }
+        http {
+            access_log /dev/stdout;
+            error_log /dev/stderr info;
+            proxy_temp_path /tmp/proxy_temp;
+            client_body_temp_path /tmp/client_body_temp;
+            fastcgi_temp_path /tmp/fastcgi_temp;
+            uwsgi_temp_path /tmp/uwsgi_temp;
+            scgi_temp_path /tmp/scgi_temp;
+            server {
+                listen 8443 ssl;
+                ssl_certificate /proxy-certs/arena-proxy.crt;
+                ssl_certificate_key /proxy-certs/arena-proxy.key;
+                location / {
+                    proxy_pass ${ARENA_UPSTREAM_URL:?ARENA_UPSTREAM_URL is required};
+                    proxy_http_version 1.1;
+                    proxy_ssl_server_name on;
+                    proxy_set_header X-Forwarded-Proto http;
+                    proxy_buffering off;
+                    proxy_cache off;
+                    proxy_read_timeout 3600s;
+                    proxy_send_timeout 3600s;
+                }
+            }
+        }
+        NGINX
+        exec nginx -c /tmp/nginx.conf -g 'daemon off;'
+    networks:
+      - sandbox_internal
+      - proxy_egress
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    volumes:
+      - proxy_certs:/proxy-certs
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
+  sandbox-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - arena-proxy
+    command:
+      - sh
+      - /app/src/entrypoint.sh
+    environment:
+      ARENA_URL: https://arena-proxy:8443
+      BOT_API_KEY: ${BOT_API_KEY:?BOT_API_KEY is required}
+      ROOM_ID: ${ROOM_ID:?ROOM_ID is required}
+      BOT_SEAT: ${BOT_SEAT:-black}
+      HOME: /tmp
+      NUMBA_CACHE_DIR: /tmp/numba_cache
+      REQUESTS_CA_BUNDLE: /proxy-certs/arena-proxy.crt
+      SSL_CERT_FILE: /proxy-certs/arena-proxy.crt
+      XDG_CACHE_HOME: /tmp/.cache
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    networks:
+      - sandbox_internal
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    cpus: "2.0"
+    mem_limit: 2g
+    pids_limit: 256
+    tmpfs:
+      - /tmp:size=512m,mode=1777,exec
+    shm_size: 128m
+    volumes:
+      - type: bind
+        source: ${SANDBOX_SRC_PATH:-./src}
+        target: /app/src
+        read_only: true
+      - type: volume
+        source: proxy_certs
+        target: /proxy-certs
+        read_only: true
+    working_dir: /app/src
+    init: true
+    restart: "no"
+
+  netcheck:
+    image: curlimages/curl:8.11.1
+    profiles:
+      - test
+    depends_on:
+      - arena-proxy
+    command:
+      - sh
+      - -ec
+      - |
+        status="$$(curl --cacert /proxy-certs/arena-proxy.crt -sS -m 5 -o /dev/null -w '%{http_code}' "https://arena-proxy:8443")"
+        case "$$status" in
+          000|502|503|504)
+            echo "arena proxy unavailable: HTTP $$status"
+            exit 1
+            ;;
+        esac
+        if curl -fsS -m 5 https://example.com >/dev/null; then
+          echo "unexpected external network access"
+          exit 1
+        fi
+        echo "arena reachable; external network blocked"
+    networks:
+      - sandbox_internal
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - type: volume
+        source: proxy_certs
+        target: /proxy-certs
+        read_only: true
+    restart: "no"
+
+networks:
+  sandbox_internal:
+    internal: true
+  proxy_egress:
+
+volumes:
+  proxy_certs:

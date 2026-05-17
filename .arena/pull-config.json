@@ -1,7 +1,0 @@
-{
-  "runtime": "python",
-  "python_version": "3.11",
-  "entrypoint": "src/entrypoint.sh",
-  "install_command": "pip install -r requirements.txt",
-  "pull_only": true
-}

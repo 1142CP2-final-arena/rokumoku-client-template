@@ -1,0 +1,67 @@
+name: Arena CI
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compliance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      REPO_LIMIT_KIB: "196608"
+      NUMBA_CACHE_DIR: /tmp/numba_cache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Required Files And Size
+        run: |
+          set -eu
+          test -f requirements.txt
+          test -f Dockerfile
+          test -f docker-compose.yml
+          test -f src/entrypoint.sh
+          test -f src/test.py
+          test -f src/main.py
+          test -f src/api.py
+          test -f src/strategy.py
+
+          src_kib="$(du -sk src | cut -f1)"
+          echo "src directory: ${src_kib} KiB"
+          if [ "${src_kib}" -gt "${REPO_LIMIT_KIB}" ]; then
+            echo "src directory exceeds ${REPO_LIMIT_KIB} KiB"
+            exit 1
+          fi
+
+          bash -n src/entrypoint.sh
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install System Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends g++ make
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+
+      - name: Python Syntax Check
+        run: |
+          python -m py_compile src/api.py
+          python -m py_compile src/main.py
+          python -m py_compile src/strategy.py
+          python -m py_compile src/test.py
+
+      - name: Runtime Self-Test
+        run: python src/test.py

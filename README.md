@@ -1,186 +1,272 @@
-# 🤖 Rokumoku Arena AI Bot Template (Python)
+# Rokumoku Arena AI Bot Template
 
-歡迎來到期末 AI 錦標賽！這份官方 Python 模板已經為你處理好所有繁瑣的伺服器通訊、Session 維護、Heartbeat 與 SSE 重連。你只需要專注於一件事：**寫出最強的演算法擊敗對手。**
+這是期末 AI 錦標賽的官方 Python bot template。模板已處理 Arena API、登入、heartbeat、SSE stream reconnect、上桌、ready、落子與 Armageddon bid 流程；你主要需要實作的是 `src/strategy.py` 裡的 `BotStrategy`。
 
-## 📂 專案結構
+## 0. How To Use This Template
 
-本模板包含以下核心檔案：
+### Step 1. Create Your Private Repo
+
+請在 class organization 建立自己的 private repository：
+
+https://github.com/1142CP2-final-arena
+
+Repository name 必須使用你的學號，例如：
+
+```text
+108703015
+```
+
+請勿使用暱稱、隊名、GitHub username 或其他自訂名稱。不遵守命名規則者，助教會在 final report part 酌情扣分。若助教無法辨識 repo 歸屬，助教會直接以 0 分計。
+
+#### Step 1-1. 進入助教提供的 repo template
+![gh-1](assets/gh_org_1.png)
+
+#### Step 1-2. 點選 "Use this template"
+![gh-2](assets/gh_org_2.png)
+
+#### Step 1-3. 注意圖上紅框處設定
+![gh-3](assets/gh_org_3.png)
+
+### Step 2. Clone And Develop
+
+從你的 private repo clone 到本機後，主要修改 `src/strategy.py`。如果你的 AI 需要更多 room snapshot 資訊，也可以閱讀並修改 `src/main.py`，把所需資料傳給 `BotStrategy` 物件或 `choose_move()` / `choose_bid()` 呼叫。
+
+### Step 3. Push To `master`
+
+完成修改後 push 到 `master`。GitHub 會先執行模板提供的 Arena CI；CI 通過後，Arena 會透過 GitHub App webhook 自動登記並 pull 你的 repo。
+
+學生必須先用 GitHub 登入 Arena 一次，Arena 才能用 GitHub workflow actor 的 GitHub id 對應到 Arena user。Repo 命名規則主要供助教評分與人工核對使用，不取代 GitHub OAuth 身分對應。
+
+![gh-4](assets/gh_org_4.png)
+
+## 1. Project Structure
 
 ```text
 client_template/
 ├── README.md
 ├── requirements.txt
 ├── Dockerfile
+├── Dockerfile.sandbox-proxy
 ├── docker-compose.yml
+├── docker-compose-sandbox.yml
 ├── .env.example
-├── .arena/
-│   └── pull-config.json
+├── assets/
+│   ├── gh_org_1.png
+│   ├── gh_org_2.png
+│   ├── gh_org_3.png
+│   └── gh_org_4.png
 ├── .github/
 │   └── workflows/
-│       └── sandbox_pull_only.yml
+│       └── arena_ci.yml
 └── src/
     ├── entrypoint.sh
+    ├── test.py
     ├── main.py
     ├── api.py
     └── strategy.py
 ```
 
-Sandbox bot 只會 mount `./src`。請將 `entrypoint.sh` 寫在 `./src` 裡面。
+### 可修改
 
-* **`src/strategy.py`** ⭐️ **你要寫 code 的地方**：包含 `BotStrategy` 類別，你所有的 AI 邏輯（如 Minimax、Alpha-Beta 剪枝或神經網路推論）都請實作在這裡。
-* **`src/main.py`**：遊戲主程式。負責登入、維護狀態機、解析 SSE 事件流，並在適當的時機呼叫你的策略。
-* **`src/api.py`**（不建議更改）：底層的 HTTP/REST API 封裝，會處理 session、錯誤 envelope 與 heartbeat 相關呼叫。
-* **`src/entrypoint.sh`**：sandbox runtime 入口。Arena 會把 `./src` mount 到容器內並執行這個檔案。
-* **`docker-compose.yml`**（不建議更改）：本機 Docker Build and Run 測試用 compose 設定。
-* **`Dockerfile`**（請勿更改）：比賽與本機測試會固定使用這份環境設定。
-* **`requirements.txt`**（請勿更改）：Python 依賴套件清單。比賽時會固定使用這份套件包。
-* **`.arena/`**（請勿更改）：Arena pull-only pipeline 會讀取的設定與 metadata 路徑。
-* **`.github/`**（請勿更改）：模板提供的 CI/CD workflow。
+- `src/strategy.py`: 主要開發位置。請在 `BotStrategy` 中實作你的 AI、搜尋、DQN/MCTS 推論或 bid 策略。
+- `src/main.py`: 可讀可改。若 AI 需要更多 server snapshot 資訊，可以修改這個檔案，把額外資訊傳給 `BotStrategy`。但不建議改登入、session、heartbeat、SSE reconnect、API command flow，除非你確定後果。
 
----
+### 不建議修改
 
-## 🚀 快速啟動 (Quick Start)
+- `src/api.py`: 底層 HTTP API wrapper。
+- `src/entrypoint.sh`: runtime 入口，通常不需要更改。
+- `src/test.py`: startup runtime self-test。Bot 啟動時會先檢查 `/tmp`、Python 套件、Numba cache、Torch CPU inference、`g++` / `make`，通過後才連線 Arena。
+- `docker-compose.yml`: 本機 Docker build and run 測試用。
+- `docker-compose-sandbox.yml`: 本機 sandbox 模式測試用，會套用網路隔離檢查。
+- `assets/`: README 使用的教學截圖，不會被 bot runtime 使用。
 
-### 1. 安裝環境與依賴
-請確保你的電腦已安裝 Python 3.8+。
-```bash
-# 建議使用虛擬環境 (Virtual Environment)
-python -m venv venv
-source venv/bin/activate  # Windows 系統請用 venv\Scripts\activate
+### 請勿修改
 
-# 安裝必要套件
-pip install -r requirements.txt
-```
+- `Dockerfile`: 固定 Python 執行環境。正式比賽會使用同等環境。
+- `Dockerfile.sandbox-proxy`: sandbox 模式測試用 reverse proxy image；它在 build time 安裝 proxy 需要的工具，避免 runtime 依賴外部 package mirror。
+- `requirements.txt`: 固定 Python 套件包。正式比賽不會安裝你額外加入的套件。
+- `.github/`: 模板提供的 Arena CI workflow。Arena BE 會檢查 workflow 檔案內容是否和官方模板一致。
 
-### 2. 設定環境變數
-你的 Bot 需要 API Key 才能連上競技場。請先複製環境變數範本：
+## 2. Configure `.env`
+
+複製環境變數範本：
+
 ```bash
 cp .env.example .env
 ```
 
-接著編輯 `.env`，把以下四項替換為你在平台上獲得的真實資訊：
+編輯 `.env`：
+
 ```dotenv
-ARENA_URL=http://your-arena-url.com
+ARENA_UPSTREAM_URL=http://your-arena-url.com
 BOT_API_KEY=ra_bot_YOUR_API_KEY
 ROOM_ID=room1
 BOT_SEAT=black
 ```
 
-`BOT_SEAT` 是偏好的初始座位，可設為 `black` 或 `white`。`src/main.py` 啟動時會自動讀取專案根目錄的 `.env`；如果系統環境變數中已經有同名設定，系統環境變數會優先。
-`.env` 會包含你的 API Key，請保留在本機，不要提交到版本庫。
+- `ARENA_UPSTREAM_URL`: Arena base URL。一般 Docker 測試會把它注入為 bot container 內的 `ARENA_URL`；sandbox 測試會讓 nginx proxy 轉發到這個 upstream。
+- `BOT_API_KEY`: Arena profile 中的 API Bot Key。
+- `ROOM_ID`: 目標房間 ID。
+- `BOT_SEAT`: 偏好的初始座位，`black` 或 `white`。
 
-注意：模板會在登入成功後直接使用 server 回傳的 bot `username`，不需要你自己手動指定 `BOT_USERNAME`。
+`.env` 內含 API key，請保留在本機，不要 commit。
 
-### 3. 啟動你的 Bot
-```bash
-sh src/entrypoint.sh
-```
-啟動後，Bot 會自動登入、連線至房間、自動上桌與 ready，並在輪到你時呼叫 `src/strategy.py` 裡的邏輯。你可以打開網頁版競技場，親眼觀看你的 Bot 下棋。
+## 3. Run With Docker
 
-### 4. 使用 Docker 測試
-
-本模板附上的 `Dockerfile` 與 `docker-compose.yml` 僅供學生在本機測試環境是否可正常啟動：
+本機 Docker 測試會使用和正式環境相同的固定套件包：
 
 ```bash
-cd client_template
 docker compose up --build --abort-on-container-exit
 ```
 
-這個 compose 會 build 目前目錄的 `Dockerfile`，讀取 `.env`，並讓 bot 直接透過網路連到 `ARENA_URL`。請使用平台提供的 API Bot Key 填入 `BOT_API_KEY`，並確認 `ROOM_ID` 與 `BOT_SEAT` 正確。此本機測試不會經過比賽 sandbox proxy，也不會套用正式比賽的網路隔離。
+若要啟動 sandbox 模式並執行網路隔離檢查：
 
-此 Dockerfile 的用途是讓你確認 `requirements.txt`、`src/entrypoint.sh` 與 bot 程式在乾淨 Python 環境中可以運作。實際比賽會使用設定相同、但額外添加安全防護與隔離的 Dockerfile 啟動容器，請勿更改 `Dockerfile`。
+```bash
+docker compose -f docker-compose-sandbox.yml --profile test up --build --abort-on-container-exit
+```
 
-`requirements.txt` 也請勿更改。比賽時會固定使用模板提供的這組 Python 套件包；若你的 bot 依賴額外套件，正式比賽環境不會自動安裝，可能導致 bot 無法正確啟動。請把開發重點放在 `src/strategy.py`，並以模板既有依賴完成實作。
+`--profile test` 會啟動額外的 `netcheck` container；檢查完成後整個 compose 會停止。若要讓 sandbox bot 長時間留在房間中測試，請拿掉 `--profile test`。
 
-`docker-compose.yml` 是本機測試用固定設定，不建議更改。
+若要啟動 sandbox 模式並讓 bot 持續執行：
 
----
+```bash
+docker compose -f docker-compose-sandbox.yml up --build
+```
 
-## 🧠 如何開發你的 AI？
+`docker-compose.yml` 會：
 
-請打開 `src/strategy.py`，你只需要實作以下兩個核心函式：
+- build 目前目錄的 `Dockerfile`；
+- 讀取 `.env`；
+- 將 `./src` 以 read-only 方式掛載到 `/app/src`；
+- 在 `/app/src` 執行 `entrypoint.sh`；
+- 直接透過 `ARENA_UPSTREAM_URL` 連到 Arena。
 
-### 1. `choose_move` (落子策略)
-當輪到你的回合時，系統會呼叫此函式。你需要回傳你想落子的座標，以及是否使用特殊棋子（Strong 棋子）。
+本機 sandbox 測試的目標是對齊正式比賽的網路隔離，但具體環境仍可能有差異。請務必 push 到 Arena 系統測試，最終以 Arena backend 實際執行結果為準。
 
-**傳入參數：**
-* `board`: 由 server 決定大小的二維陣列。`arena_dev` 目前預設為 `15x15`（`.`=空, `b`=黑一般, `w`=白一般, `B`=黑強子, `W`=白強子）。
-* `my_color`: 整數，**1** 代表黑方，**2** 代表白方。
-* `strong_available`: 整數，你目前手上持有的 Strong 棋子數量（0 或 1）。
-* `time_left`: 浮點數，你這局**剩餘的總思考時間**（秒）。
+## 4. Sandbox Runtime Contract
 
-**回傳值格式：**
-`row (int)`, `col (int)`, `use_strong (bool)`
+正式 sandbox 執行時，請假設：
 
-### 2. `choose_bid` (Armageddon 競標策略)
-如果前兩局雙方打平（1:1），將進入 Armageddon。雙方會進行 **simultaneous sealed bid**，**出價較低者將獲得該局的選色權（黑/白）**，和局則由未得標方獲勝。
+- project folder 在 container 內是 `/app/src`；
+- `/app/src` 是 read-only；
+- `entrypoint.sh` 位於 `/app/src/entrypoint.sh`；
+- 程式啟動時的 working directory 是 `/app/src`；
+- 如果需要暫存檔案，請寫到 `/tmp`；
+- `/tmp` 是 tmpfs，容量有限；
+- 若需要在啟動時編譯 C++ search engine，請把輸出檔放在 `/tmp`；
+- `/dev/shm` 容量有限；
+- sandbox bot 只能連 Arena API，不能連外部網路服務。
 
-**傳入參數：**
-* `my_max_bid`: 你最多可以出的秒數（通常等於預設初始時間）。
-* `default_color`: 預設分配的顏色。
+硬體、sandbox 限制、遊戲規則、Armageddon 規則與 match format 請以 [期末 Project 公告](https://victormftsai.github.io/Class-CP2_1142/finalproj/Final_Score_Distribution.pdf) 為準。
 
-**回傳值格式：**
-`bid_seconds (float)`, `chosen_color (str, "black" 或 "white")`
+公告中包含 CPU、memory、repository size、`/tmp`、`/dev/shm`、時制與比賽格式等限制。請不要依賴大型暫存檔、外部服務或過慢的模型推論。
 
----
+## 5. Available Tools
 
-## 📜 遊戲核心規則摘要
+模板固定提供以下工具與套件，正式比賽會使用同等環境。
 
-* **獲勝條件**：在目前的棋盤設定下，率先將 **6 顆**自己的棋子連成一線（橫、豎、斜皆可）。`arena_dev` 預設為 `15x15 / 連 6`，正式以 server 設定為準。
-* **Strong 棋子 (強子)**：
-    * 一般子只能下在空格。
-    * 強子可以覆蓋在**任何非強子**（包含對手或自己的普通子）之上，且覆蓋後**無法再被任何人覆蓋**。
-* **強子補給機制**：
-    * 在第 6、13、20、27... 手開始前，雙方會同時獲得 1 顆強子。
-    * **注意：強子最多只能庫存 1 顆！** 如果在補給回合到來前你沒有把手上的強子打出去，它就會被浪費掉。
+系統工具：
 
----
+- `python3`
+- `g++`
+- `make`
 
-## ⚠️ 效能與競技規範 (必讀)
+Python 套件：
 
-這是一場寫實的程式競技，系統資源是有限的。在提交你的程式碼前，請注意以下事項：
+- `requests`
+- `sseclient-py`
+- `numpy`
+- `scipy`
+- `numba`
+- `torch`
+- `gymnasium`
+- `tqdm`
 
-1.  **時間就是生命**：本次錦標賽採用包含 increment 的快棋時制。你的 `choose_move` 函式如果執行時間超過你的 `time_left`，系統將會強制判斷你**超時落敗 (Timeout)**。
-2.  **硬體限制**：錦標賽伺服器將使用 Docker 進行嚴格的資源隔離。請預設你的 Bot 只能使用 **有限的 CPU 核心** 進行運算。過度複雜的神經網路如果推論過慢，將會被傳統的高效 C++ / Python 搜尋演算法擊敗。
-3.  **網路隔離**：比賽用的沙箱是**斷網**的（僅能連線至 Arena API）。請勿嘗試使用 API 呼叫外部的運算資源（如遠端 GPU 伺服器），這會導致你的程式直接崩潰。
+若使用 Numba cache，請讓 cache 寫到 `/tmp`。模板已設定 `NUMBA_CACHE_DIR=/tmp/numba_cache`，避免 cache 寫入 read-only 的 `/app/src`。
 
----
+若使用 C++ search，請在 `src/entrypoint.sh` 或 Python 程式中把 binary 編譯到 `/tmp`，不要輸出到 read-only 的 `/app/src`。
 
-## 🔌 Template 與目前 Arena Contract 的對應
+## 6. Implementing `BotStrategy`
 
-這份模板目前已對齊以下 server 行為：
+你主要需要實作：
 
-1. `POST /api/auth/login` 會回傳 bot user 資訊，模板會直接使用其中的 `username`。
-2. 房間長期狀態來源只有 `/api/rooms/<room_id>/stream`，不依賴任何 POST response 來更新本地狀態。
-3. `heartbeat` 每 5 秒送一次；server 也會每 5 秒送一次 `sync` event。
-4. stream 若斷線，模板會自動重連。
-5. 落子 API 為 `POST /api/rooms/<room_id>/move`。
-6. Armageddon bidding 是 simultaneous sealed bid，提交前看不到對手的 bid，提交端點為 `POST /api/rooms/<room_id>/bid`。
-7. `/stream` 會提供 `board_compact + board_size`（扁平化盤面），模板已內建 fallback 解碼；若同時收到 `board` 二維陣列也會直接使用。
+```python
+class BotStrategy:
+    def __init__(self, username):
+        ...
 
----
+    def choose_move(self, board, my_color, strong_available, time_left):
+        ...
 
-## 🧱 Sandbox Pull-Only CI/CD（新）
+    def choose_bid(self, my_max_bid, default_color):
+        ...
+```
 
-這份模板已附上 pull-only pipeline：
+### `__init__(username)`
 
-* Workflow 路徑：`.github/workflows/sandbox_pull_only.yml`
-* 每次 push 會：
-  1. 安裝依賴並做語法檢查
-  2. 產出 `.arena/sandbox-build-metadata.json`（含 `build_datetime` / `commit_hash`）
-  3. 上傳 metadata artifact（不會把 API key 推送到 arena）
+適合初始化模型、lookup table、opening book、MCTS state 或其他可重用資料。若需要 cache，請放在 memory 或 `/tmp`，不要寫入 repo 目錄。
 
-Arena 端做法：
+### `choose_move(board, my_color, strong_available, time_left)`
 
-1. 在 tournament sandbox entry 填入你的 `repository` 與 `git_ref`。
-2. Arena 只會在「配對即將開局」前執行 pull command 抓 repo。
-3. 啟動 sandbox bot 時只會以唯讀方式掛載 repo 的 `./src` 到 container 的 `/workspace`。
-4. Arena 會執行 `sh /workspace/entrypoint.sh`。請確認你的 `entrypoint.sh` 放在 `./src` 內，且會啟動你的 bot。
+輪到你落子時呼叫。
 
-另外可用 `.arena/pull-config.json` 宣告 entrypoint 與安裝命令；本模板的 entrypoint 是 `src/entrypoint.sh`。
+- `board`: 二維陣列，`.` 代表空格，`b/w` 代表一般黑/白子，`B/W` 代表 strong 黑/白子。
+- `my_color`: `1` 是黑，`2` 是白。
+- `strong_available`: 目前可用 strong piece 數量。
+- `time_left`: 這局剩餘總思考時間，單位秒。
 
-### 💡 實作提示 (Pro Tips)
-* **迭代加深 (Iterative Deepening)**：不要寫死你的搜尋層數（Depth）。寫一個可以在任何時刻透過 Timeout 中斷並回傳「當前最佳解」的迴圈，這是避免超時的關鍵。
-* **時間管理**：不要在每一步花費一樣的時間。在開局或只有唯一解圍步時極速落子把時間存起來；並把時間花在強子即將刷新（第 5, 6, 12, 13 手）的關鍵波段上。
+回傳：
 
-**祝你好運，願算力與你同在！**
+```python
+row, col, use_strong
+```
+
+`row` / `col` 是 zero-based 座標，`use_strong` 是 boolean。
+
+### `choose_bid(my_max_bid, default_color)`
+
+Armageddon bid 時呼叫。
+
+- `my_max_bid`: 最大可出價秒數。
+- `default_color`: server 預設顏色。
+
+回傳：
+
+```python
+bid_seconds, chosen_color
+```
+
+`chosen_color` 必須是 `"black"` 或 `"white"`。
+
+## 7. Automatic Arena Registration
+
+Arena registration 由 GitHub App `workflow_run` webhook 觸發。學生操作流程請看第 0 章；這裡只列系統判定規則。
+
+- 只接受 `master` branch 的 `Arena CI` 結果。
+- 只有 CI 成功時，Arena BE 才會處理該 commit。
+- Arena BE 會驗證 `.github/workflows/arena_ci.yml` 內容仍和官方模板一致。
+- Arena BE 會 checkout 通過 CI 的 exact commit，不會直接 pull branch latest。
+- Arena BE pull 前會用 GitHub metadata 做粗略 size 檢查，pull 後會檢查 `src` size。
+- 通過後，Profile 的 Sandbox Bot panel 會顯示 ready、commit 與 checkout path。
+
+請不要在 GitHub Actions 或 repo 中保存 Arena API key。Bot API key 只應放在本機 `.env` 或由 Arena sandbox runtime 注入。
+
+## 8. Template And Arena Contract
+
+目前模板對齊以下 Arena behavior：
+
+1. `POST /api/auth/login` 使用 API key 登入，回傳 bot user 資訊。
+2. room 狀態以 `/api/rooms/<room_id>/stream` 的 SSE snapshot 為準。
+3. template 會定期送 heartbeat。
+4. stream 斷線後會自動重連。
+5. 落子 API 是 `POST /api/rooms/<room_id>/move`。
+6. Armageddon bid API 是 `POST /api/rooms/<room_id>/bid`。
+7. server 會提供 `board_compact + board_size`；template 也支援直接使用二維 `board`。
+
+## 9. Practical Tips
+
+- 使用 iterative deepening，隨時保留目前最佳解，避免 timeout。
+- 不要每步都花同樣時間；可以在簡單局面快速落子，保留時間給關鍵局面。
+- MCTS / DQN 可以使用模板內建套件，但請在 sandbox 限制內控制 CPU、memory、`/tmp` 與推論時間。
+- 遊戲規則、Armageddon 規則與 match format 請閱讀 [期末 Project 公告](https://victormftsai.github.io/Class-CP2_1142/finalproj/Final_Score_Distribution.pdf)。
+- 外部 API、遠端 GPU、雲端推論在正式 sandbox 中不可用。

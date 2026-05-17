@@ -1,13 +1,32 @@
+name: rokumoku-client-local
+
 services:
   bot:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ${BOT_IMAGE:-rokumoku-bot-test}
-    env_file:
-      - .env
     environment:
+      ARENA_URL: ${ARENA_UPSTREAM_URL:?ARENA_UPSTREAM_URL is required}
+      BOT_API_KEY: ${BOT_API_KEY:?BOT_API_KEY is required}
+      ROOM_ID: ${ROOM_ID:?ROOM_ID is required}
+      BOT_SEAT: ${BOT_SEAT:-black}
+      HOME: /tmp
+      NUMBA_CACHE_DIR: /tmp/numba_cache
+      XDG_CACHE_HOME: /tmp/.cache
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
+    command:
+      - sh
+      - /app/src/entrypoint.sh
+    working_dir: /app/src
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777,exec
+    shm_size: 128m
+    volumes:
+      - type: bind
+        source: ./src
+        target: /app/src
+        read_only: true
     init: true
     restart: "no"

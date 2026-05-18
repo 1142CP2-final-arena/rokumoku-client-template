@@ -2,11 +2,12 @@ requests==2.31.0
 sseclient-py==1.8.0
 
 # MCTS / numeric search helpers.
-numpy>=1.26,<3
-scipy>=1.13,<2
-numba>=0.60,<1
-tqdm>=4.66,<5
+numpy==2.4.5
+scipy==1.17.1
+numba==0.65.1
+tqdm==4.67.3
 
-# DQN / reinforcement learning helpers.
-torch>=2.4,<3
-gymnasium>=0.29,<1
+# DQN / reinforcement learning helpers. CPU-only wheels keep the image small.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.12.0+cpu
+gymnasium==0.29.1

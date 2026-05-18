@@ -178,7 +178,7 @@ Python 套件：
 - `numpy`
 - `scipy`
 - `numba`
-- `torch`
+- `torch` (CPU-only build)
 - `gymnasium`
 - `tqdm`
 

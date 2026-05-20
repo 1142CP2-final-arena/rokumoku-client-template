@@ -9,7 +9,7 @@ services:
       - /bin/sh
       - -ec
       - |
-        openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+        openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
           -keyout /proxy-certs/arena-proxy.key \
           -out /proxy-certs/arena-proxy.crt \
           -subj "/CN=arena-proxy" \

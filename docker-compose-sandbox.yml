@@ -87,7 +87,7 @@ services:
       - no-new-privileges:true
     user: "1000:1000"
     cpus: "2.0"
-    mem_limit: 2g
+    mem_limit: 3g
     pids_limit: 256
     tmpfs:
       - /tmp:size=512m,mode=1777,exec
